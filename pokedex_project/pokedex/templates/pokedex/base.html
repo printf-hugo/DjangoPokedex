@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Pokédex{% endblock %}</title>
+    <style>
+        :root {
+            --bg-color: #221515;
+            --surface-color: #2c2c2c;
+            --primary-text: #f0f0f0;
+            --secondary-text: #888;
+            --border-color: #882222;
+            --primary-accent: #007bff;
+            --primary-accent-hover: #0056b3;
+            --success-color: #28a745;
+            --error-color: #dc3545;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-text);
+            margin: 0;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: auto; }
+        .nav { background-color: var(--surface-color); padding: 10px 20px; margin-bottom: 20px; border-radius: 8px; display: flex; justify-content: flex-start; align-items: center; gap: 15px; }
+        .nav a { color: var(--primary-text); text-decoration: none; padding: 8px 15px; border-radius: 5px; transition: background-color 0.2s; }
+        .nav a:hover { background-color: var(--border-color); }
+        input, button { font-family: inherit; font-size: 1em; }
+        button { padding: 10px 15px; background-color: var(--primary-accent); color: white; border: none; border-radius: 5px; cursor: pointer; transition: background-color 0.2s; }
+        button:hover { background-color: var(--primary-accent-hover); }
+        button:disabled { background-color: var(--secondary-text); cursor: not-allowed; }
+
+        #notification-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .notification-box {
+            padding: 15px 20px;
+            border-radius: 8px;
+            color: white;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+            opacity: 0;
+            transform: translateX(100%);
+            animation: slideIn 0.3s forwards;
+        }
+        .notification-box.success { background-color: var(--success-color); }
+        .notification-box.error { background-color: var(--error-color); }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+        @keyframes slideOut { to { opacity: 0; transform: translateX(100%); } }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <div id="notification-container"></div>
+    <div class="container">
+        <nav class="nav">
+            <a href="{% url 'index' %}">Busca</a>
+            <a href="{% url 'favorites' %}">Favoritos</a>
+        </nav>
+        {% block content %}{% endblock %}
+    </div>
+    <script>
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        
+        function showNotification(message, type = 'success') {
+            const container = document.getElementById('notification-container');
+            const notif = document.createElement('div');
+            notif.className = `notification-box ${type}`;
+            notif.textContent = message;
+            container.appendChild(notif);
+            setTimeout(() => {
+                notif.style.animation = 'slideOut 0.3s forwards';
+                notif.addEventListener('animationend', () => notif.remove());
+            }, 3000);
+        }
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

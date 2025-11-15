@@ -1,0 +1,134 @@
+{% extends 'pokedex/base.html' %}
+{% load static %}
+{% block title %}Pokédex{% endblock %}
+
+{% block extra_css %}
+<style>
+    .search-container { text-align: center; margin: 30px 0; }
+    .search-container input { width: 300px; padding: 12px; font-size: 1.2em; background-color: var(--surface-color); color: var(--primary-text); border: 1px solid var(--border-color); border-radius: 25px; }
+    .search-container button { padding: 12px 20px; font-size: 1.2em; margin-left: 10px; cursor: pointer; background-color: var(--primary-color); color: white; border: none; border-radius: 25px; }
+    
+    #result-container { display: flex; justify-content: center; margin-top: 20px; }
+    .pokemon-card {
+        width: 320px; background-color: var(--surface-color); border: 1px solid var(--border-color); border-radius: 15px;
+        padding: 20px; text-align: center; box-shadow: 0 4px 8px rgba(0,0,0,0.3); position: relative;
+    }
+    .pokemon-card img { width: 150px; height: 150px; margin-top: -50px; filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5)); }
+    .pokemon-card h3 { margin: 10px 0 5px 0; text-transform: capitalize; font-size: 1.8em; }
+    .pokemon-card .pokemon-id { color: var(--secondary-text); margin-bottom: 15px; }
+
+    .pokemon-generation {
+        position: absolute; top: 15px; left: 20px;
+        background-color: rgba(0,0,0,0.4); color: white; padding: 4px 10px;
+        border-radius: 12px; font-size: 0.8em; font-weight: bold; text-transform: uppercase;
+    }
+    .pokemon-status {
+        font-size: 0.9em; font-style: italic; color: var(--secondary-text);
+        margin: 10px 0; padding: 5px 10px; border-radius: 8px;
+        background-color: var(--border-color); display: inline-block;
+    }
+
+    .pokemon-card .types { margin: 10px 0; }
+    .pokemon-card .types span { padding: 5px 15px; border-radius: 15px; margin: 0 5px; font-weight: bold; }
+    .stats-container { margin-top: 15px; padding-top: 15px; border-top: 1px solid var(--border-color); text-align: left; }
+    .stat { display: flex; justify-content: space-between; margin-bottom: 5px; text-transform: capitalize; }
+    #add-favorite-btn { width: 100%; padding: 12px; margin-top: 20px; font-size: 1.1em; background-color: var(--success-color); color: white; border: none; border-radius: 8px; cursor: pointer; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="search-container">
+    <input type="text" id="pokemon-search" placeholder="Buscar por Nome ou Numero..." value="{{ request.GET.pokemon }}">
+    <button onclick="searchPokemon()">Buscar</button>
+</div>
+<div id="result-container"></div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const searchInput = document.getElementById('pokemon-search');
+        if (searchInput.value) {
+            searchPokemon();
+        }
+        searchInput.addEventListener('keyup', (event) => {
+            if (event.key === 'Enter') {
+                searchPokemon();
+            }
+        });
+    });
+
+    async function searchPokemon() {
+        const query = document.getElementById('pokemon-search').value.toLowerCase().trim();
+        const resultContainer = document.getElementById('result-container');
+        if (!query) {
+            resultContainer.innerHTML = '<p>Por favor, digite o nome ou ID de um Pokémon.</p>';
+            return;
+        }
+
+        resultContainer.innerHTML = '<p>Buscando...</p>';
+
+        try {
+            const [pokemonResponse, speciesResponse] = await Promise.all([
+                fetch(`https://pokeapi.co/api/v2/pokemon/${query}`),
+                fetch(`https://pokeapi.co/api/v2/pokemon-species/${query}`)
+            ]);
+
+            if (!pokemonResponse.ok) {
+                throw new Error('Pokémon não encontrado.');
+            }
+
+            const pokemon = await pokemonResponse.json();
+            const species = speciesResponse.ok ? await speciesResponse.json() : null;
+
+            const generationName = species ? species.generation.name.replace('generation-', '').toUpperCase() : 'N/A';
+            let status = 'Normal';
+            if (species) {
+                if (species.is_mythical) status = 'Mítico';
+                else if (species.is_legendary) status = 'Lendário';
+            }
+
+            resultContainer.innerHTML = `
+                <div class="pokemon-card">
+                    <div class="pokemon-generation">${generationName}</div>
+                    <img src="${pokemon.sprites.front_default}" alt="${pokemon.name}">
+                    <h3>${pokemon.name}</h3>
+                    <p class="pokemon-id">#${pokemon.id}</p>
+                    <div class="types">
+                        ${pokemon.types.map(t => `<span style="background-color: var(--type-${t.type.name})">${t.type.name}</span>`).join('')}
+                    </div>
+                    <div class="pokemon-status">${status}</div>
+                    <div class="stats-container">
+                        ${pokemon.stats.map(s => `
+                            <div class="stat">
+                                <span>${s.stat.name.replace('-', ' ')}</span>
+                                <strong>${s.base_stat}</strong>
+                            </div>
+                        `).join('')}
+                    </div>
+                    <button id="add-favorite-btn" data-pokemon-id="${pokemon.id}">Adicionar aos Favoritos</button>
+                </div>
+            `;
+
+            document.getElementById('add-favorite-btn').addEventListener('click', addFavorite);
+
+        } catch (error) {
+            resultContainer.innerHTML = `<p>${error.message}</p>`;
+        }
+    }
+
+    async function addFavorite(event) {
+        const pokemonId = event.target.dataset.pokemonId;
+        const response = await fetch("{% url 'api_favorites' %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ pokemon_id: pokemonId })
+        });
+        const data = await response.json();
+        showNotification(data.message);
+    }
+</script>
+{% endblock %}
